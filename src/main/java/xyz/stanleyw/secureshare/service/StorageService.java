@@ -1,15 +1,17 @@
 package xyz.stanleyw.secureshare.service;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.stereotype.Service;
+import org.springframework.core.io.Resource;
 import org.springframework.web.multipart.MultipartFile;
 
-@Service
-public class StorageService {
-    private static final Logger LOGGER = LoggerFactory.getLogger(StorageService.class);
+import java.nio.file.Path;
 
-    public void storeFile(MultipartFile file) {
-        LOGGER.info("RECEIVED FILE: [{}]", file.getOriginalFilename());
-    }
+public interface StorageService {
+
+    void init();
+
+    void store(MultipartFile file);
+
+    Path load(String filename);
+
+    Resource loadAsResource(String filename);
 }

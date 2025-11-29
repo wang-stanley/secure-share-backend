@@ -21,7 +21,7 @@ public class FileController {
 
     @PostMapping("/upload")
     public ResponseEntity<?> uploadFile(@RequestParam("file") MultipartFile file) {
-        storageService.storeFile(file);
+        storageService.store(file);
 
         return ResponseEntity.status(HttpStatus.OK).body(String.valueOf(UUID.randomUUID()));
     }
