@@ -19,13 +19,18 @@ public class FileSystemStorageService implements StorageService {
     private static final Logger LOGGER = LoggerFactory.getLogger(FileSystemStorageService.class);
     private final Path rootLocation;
 
+    public Path getRootLocation() {
+        return this.rootLocation;
+    }
+
     @Autowired
     public FileSystemStorageService(StorageProperties storageProperties) {
         if (storageProperties.getLocation().trim().isEmpty()) {
-            throw new StorageException("File upload location can not be Empty.");
+            throw new StorageException("File upload location can not be empty.");
         }
 
         this.rootLocation = Paths.get(storageProperties.getLocation());
+        LOGGER.info("Root Location: {}", rootLocation);
     }
 
     @Override
@@ -39,6 +44,30 @@ public class FileSystemStorageService implements StorageService {
 
     @Override
     public void store(MultipartFile file) {
+        try {
+            if (file.isEmpty()) {
+                throw new StorageException("Failed to store empty file.");
+            }
+
+            if (file.getOriginalFilename() == null) {
+                throw new StorageException("Failed to store file with null file name");
+            }
+
+            Path destinationFile = this.rootLocation
+                    .resolve(Paths.get(file.getOriginalFilename()))
+                    .normalize()
+                    .toAbsolutePath();
+
+            if (!destinationFile.getParent().equals(this.rootLocation.toAbsolutePath())) {
+                throw new StorageException("Cannot store file outside current directory");
+            }
+
+            file.transferTo(destinationFile);
+        } catch (IOException e) {
+            LOGGER.error("Failed to store file! Error:{}", e.getMessage());
+            throw new StorageException("Failed to store file!", e);
+        }
+
         LOGGER.info("RECEIVED FILE: [{}]", file.getOriginalFilename());
     }
 
