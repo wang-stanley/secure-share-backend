@@ -4,17 +4,20 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.io.TempDir;
-import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.web.multipart.MultipartFile;
 import xyz.stanleyw.secureshare.exception.StorageException;
 import xyz.stanleyw.secureshare.properties.StorageProperties;
 import xyz.stanleyw.secureshare.service.FileSystemStorageService;
 
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 public class FileSystemStorageServiceTest {
@@ -22,10 +25,9 @@ public class FileSystemStorageServiceTest {
     @TempDir
     Path tempDir;
 
-    @Mock
-    private MultipartFile mockMultipartFile;
-
     private FileSystemStorageService storageService;
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(FileSystemStorageServiceTest.class);
 
     @BeforeEach
     void setUp() {
@@ -39,8 +41,10 @@ public class FileSystemStorageServiceTest {
         StorageProperties emptyLocProps = new StorageProperties();
         emptyLocProps.setLocation("");
 
-        assertThrows(StorageException.class,
+        StorageException ex = assertThrows(StorageException.class,
                 () -> new FileSystemStorageService(emptyLocProps));
+
+        LOGGER.info(ex.getMessage());
     }
 
     @Test
@@ -48,8 +52,10 @@ public class FileSystemStorageServiceTest {
         StorageProperties whitespaceLocProps = new StorageProperties();
         whitespaceLocProps.setLocation("    ");
 
-        assertThrows(StorageException.class,
+        StorageException ex = assertThrows(StorageException.class,
                 () -> new FileSystemStorageService(whitespaceLocProps));
+
+        LOGGER.info(ex.getMessage());
     }
 
     @Test
@@ -89,7 +95,75 @@ public class FileSystemStorageServiceTest {
         props.setLocation(invalidRootLocation.toString());
         storageService = new FileSystemStorageService(props);
 
-        assertThrows(StorageException.class,
+        StorageException ex = assertThrows(StorageException.class,
                 () -> storageService.init());
+
+        LOGGER.info(ex.getMessage());
+    }
+
+    @Test
+    void store_whenFileIsEmpty_shouldThrowStorageException() {
+        MultipartFile mockMultipartFile = mock(MultipartFile.class);
+        when(mockMultipartFile.isEmpty()).thenReturn(true);
+
+        StorageException ex = assertThrows(StorageException.class,
+                () -> storageService.store(mockMultipartFile));
+
+        LOGGER.info(ex.getMessage());
+    }
+
+    @SuppressWarnings("DataFlowIssue")
+    @Test
+    void store_whenFilenameIsNull_shouldThrowStorageException() {
+        MultipartFile mockMultipartFile = mock(MultipartFile.class);
+        when(mockMultipartFile.isEmpty()).thenReturn(false);
+        when(mockMultipartFile.getOriginalFilename()).thenReturn(null);
+
+        StorageException ex = assertThrows(StorageException.class,
+                () -> storageService.store(mockMultipartFile));
+
+        LOGGER.info(ex.getMessage());
+    }
+
+    @SuppressWarnings("DataFlowIssue")
+    @Test
+    void store_whenFilenameIsMalicious_shouldThrowStorageException() {
+        MultipartFile mockMultipartFile = mock(MultipartFile.class);
+        when(mockMultipartFile.getOriginalFilename()).thenReturn("../testMaliciousDir");
+
+        StorageException ex = assertThrows(StorageException.class,
+                () -> storageService.store(mockMultipartFile));
+
+        LOGGER.info(ex.getMessage());
+    }
+
+    @Test
+    void store_whenFileTransferToFails_shouldThrowIOException() throws IOException {
+        MultipartFile mockMultipartFile = mock(MultipartFile.class);
+        when(mockMultipartFile.isEmpty()).thenReturn(false);
+        when(mockMultipartFile.getOriginalFilename()).thenReturn("test.txt");
+
+        doThrow(new IOException("Mocked IOException TransferTo Failure"))
+                .when(mockMultipartFile).transferTo(any(Path.class));
+
+        StorageException ex = assertThrows(StorageException.class,
+                () -> storageService.store(mockMultipartFile));
+
+        LOGGER.info(ex.getMessage());
+    }
+
+    @Test
+    void store_whenFileIsValid_shouldStoreSuccessfully() throws IOException {
+        MultipartFile mockMultipartFile = mock(MultipartFile.class);
+        when(mockMultipartFile.isEmpty()).thenReturn(false);
+        when(mockMultipartFile.getOriginalFilename()).thenReturn("test.txt");
+
+        doNothing().when(mockMultipartFile).transferTo(any(Path.class));
+
+        assertDoesNotThrow(() -> storageService.store(mockMultipartFile));
+
+        Path expectedPath = storageService.getRootLocation().resolve("test.txt").normalize().toAbsolutePath();
+
+        verify(mockMultipartFile).transferTo(expectedPath);
     }
 }
