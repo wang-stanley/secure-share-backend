@@ -1,5 +1,6 @@
 package xyz.stanleyw.secureshare.service;
 
+import lombok.Getter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -14,14 +15,11 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 
+@Getter
 @Service
 public class FileSystemStorageService implements StorageService {
     private static final Logger LOGGER = LoggerFactory.getLogger(FileSystemStorageService.class);
     private final Path rootLocation;
-
-    public Path getRootLocation() {
-        return this.rootLocation;
-    }
 
     @Autowired
     public FileSystemStorageService(StorageProperties storageProperties) {
