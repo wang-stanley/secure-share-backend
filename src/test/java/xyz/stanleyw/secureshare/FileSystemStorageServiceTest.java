@@ -4,12 +4,14 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.io.TempDir;
+import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.web.multipart.MultipartFile;
 import xyz.stanleyw.secureshare.exception.StorageException;
-import xyz.stanleyw.secureshare.properties.StorageProperties;
+import xyz.stanleyw.secureshare.config.StorageProperties;
+import xyz.stanleyw.secureshare.repository.StoredFileRepository;
 import xyz.stanleyw.secureshare.service.FileSystemStorageService;
 
 import java.io.IOException;
@@ -25,6 +27,9 @@ public class FileSystemStorageServiceTest {
     @TempDir
     Path tempDir;
 
+    @Mock
+    StoredFileRepository storedFileRepository;
+
     private FileSystemStorageService storageService;
 
     private static final Logger LOGGER = LoggerFactory.getLogger(FileSystemStorageServiceTest.class);
@@ -33,7 +38,7 @@ public class FileSystemStorageServiceTest {
     void setUp() {
         StorageProperties storageProperties = new StorageProperties();
         storageProperties.setLocation(tempDir.toString());
-        storageService = new FileSystemStorageService(storageProperties);
+        storageService = new FileSystemStorageService(storageProperties, storedFileRepository);
     }
 
     @Test
@@ -42,7 +47,7 @@ public class FileSystemStorageServiceTest {
         emptyLocProps.setLocation("");
 
         StorageException ex = assertThrows(StorageException.class,
-                () -> new FileSystemStorageService(emptyLocProps));
+                () -> new FileSystemStorageService(emptyLocProps, storedFileRepository));
 
         LOGGER.info(ex.getMessage());
     }
@@ -53,7 +58,7 @@ public class FileSystemStorageServiceTest {
         whitespaceLocProps.setLocation("    ");
 
         StorageException ex = assertThrows(StorageException.class,
-                () -> new FileSystemStorageService(whitespaceLocProps));
+                () -> new FileSystemStorageService(whitespaceLocProps, storedFileRepository));
 
         LOGGER.info(ex.getMessage());
     }
@@ -70,7 +75,7 @@ public class FileSystemStorageServiceTest {
 
         StorageProperties props = new StorageProperties();
         props.setLocation(nonExistentPath.toString());
-        storageService = new FileSystemStorageService(props);
+        storageService = new FileSystemStorageService(props, storedFileRepository);
 
         storageService.init();
 
@@ -93,7 +98,7 @@ public class FileSystemStorageServiceTest {
 
         StorageProperties props = new StorageProperties();
         props.setLocation(invalidRootLocation.toString());
-        storageService = new FileSystemStorageService(props);
+        storageService = new FileSystemStorageService(props, storedFileRepository);
 
         StorageException ex = assertThrows(StorageException.class,
                 () -> storageService.init());
@@ -112,7 +117,6 @@ public class FileSystemStorageServiceTest {
         LOGGER.info(ex.getMessage());
     }
 
-    @SuppressWarnings("DataFlowIssue")
     @Test
     void store_whenFilenameIsNull_shouldThrowStorageException() {
         MultipartFile mockMultipartFile = mock(MultipartFile.class);
@@ -125,7 +129,6 @@ public class FileSystemStorageServiceTest {
         LOGGER.info(ex.getMessage());
     }
 
-    @SuppressWarnings("DataFlowIssue")
     @Test
     void store_whenFilenameIsMalicious_shouldThrowStorageException() {
         MultipartFile mockMultipartFile = mock(MultipartFile.class);

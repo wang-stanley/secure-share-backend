@@ -5,7 +5,7 @@ import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
-import xyz.stanleyw.secureshare.properties.StorageProperties;
+import xyz.stanleyw.secureshare.config.StorageProperties;
 import xyz.stanleyw.secureshare.service.StorageService;
 
 @SpringBootApplication
@@ -18,8 +18,6 @@ public class SecureShareBackendApplication {
 
 	@Bean
 	CommandLineRunner init(StorageService storageService) {
-		return (args) -> {
-			storageService.init();
-		};
+		return args -> storageService.init();
 	}
 }

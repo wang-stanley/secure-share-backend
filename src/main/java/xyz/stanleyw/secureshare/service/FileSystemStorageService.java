@@ -7,13 +7,18 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
+import xyz.stanleyw.secureshare.entity.StoredFile;
 import xyz.stanleyw.secureshare.exception.StorageException;
-import xyz.stanleyw.secureshare.properties.StorageProperties;
+import xyz.stanleyw.secureshare.config.StorageProperties;
+import xyz.stanleyw.secureshare.repository.StoredFileRepository;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
+import java.util.UUID;
 
 @Getter
 @Service
@@ -21,14 +26,17 @@ public class FileSystemStorageService implements StorageService {
     private static final Logger LOGGER = LoggerFactory.getLogger(FileSystemStorageService.class);
     private final Path rootLocation;
 
+    private final StoredFileRepository storedFileRepository;
+
     @Autowired
-    public FileSystemStorageService(StorageProperties storageProperties) {
+    public FileSystemStorageService(StorageProperties storageProperties, StoredFileRepository storedFileRepository) {
         if (storageProperties.getLocation().trim().isEmpty()) {
             throw new StorageException("File upload location can not be empty.");
         }
 
         this.rootLocation = Paths.get(storageProperties.getLocation());
         LOGGER.info("Root Location: {}", rootLocation);
+        this.storedFileRepository = storedFileRepository;
     }
 
     @Override
@@ -61,6 +69,19 @@ public class FileSystemStorageService implements StorageService {
             }
 
             file.transferTo(destinationFile);
+
+            Instant oneDayFromNow = Instant.now().plus(1, ChronoUnit.DAYS);
+
+            StoredFile storedFile = new StoredFile(
+                    UUID.randomUUID().toString(),
+                    destinationFile.toString(),
+                    file.getSize(),
+                    oneDayFromNow,
+                    Instant.now(),
+                    100
+            );
+
+            storedFileRepository.save(storedFile);
         } catch (IOException e) {
             LOGGER.error("Failed to store file! Error:{}", e.getMessage());
             throw new StorageException("Failed to store file!", e);

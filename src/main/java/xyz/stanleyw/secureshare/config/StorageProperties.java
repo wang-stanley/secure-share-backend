@@ -1,4 +1,4 @@
-package xyz.stanleyw.secureshare.properties;
+package xyz.stanleyw.secureshare.config;
 
 import jakarta.validation.constraints.NotEmpty;
 import lombok.Getter;
