@@ -1,5 +1,6 @@
 package xyz.stanleyw.secureshare.service;
 
+import com.soundicly.jnanoidenhanced.jnanoid.NanoIdUtils;
 import lombok.Getter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -18,7 +19,6 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
-import java.util.UUID;
 
 @Getter
 @Service
@@ -27,6 +27,8 @@ public class FileSystemStorageService implements StorageService {
     private final Path rootLocation;
 
     private final StoredFileRepository storedFileRepository;
+
+    private static final String id_alphabet = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
 
     @Autowired
     public FileSystemStorageService(StorageProperties storageProperties, StoredFileRepository storedFileRepository) {
@@ -73,7 +75,7 @@ public class FileSystemStorageService implements StorageService {
             Instant oneDayFromNow = Instant.now().plus(1, ChronoUnit.DAYS);
 
             StoredFile storedFile = new StoredFile(
-                    UUID.randomUUID().toString(),
+                    NanoIdUtils.randomNanoId(id_alphabet, 7),
                     destinationFile.toString(),
                     file.getSize(),
                     oneDayFromNow,
