@@ -20,7 +20,7 @@ public class StoredFile {
     @Id
     private String id;
 
-    @Column(nullable = false)
+    @Column(nullable = false, length = 1024)
     private String storagePath;
 
     @Column(nullable = false)
@@ -31,6 +31,9 @@ public class StoredFile {
 
     @Column(nullable = false)
     private Instant createdAt;
+
+    @Column(nullable = false)
+    private int maxDownloads;
 
     @Column(nullable = false)
     private int downloadsRemaining;
