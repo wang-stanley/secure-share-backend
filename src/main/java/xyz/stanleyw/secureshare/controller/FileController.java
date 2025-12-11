@@ -1,10 +1,9 @@
 package xyz.stanleyw.secureshare.controller;
 
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+import xyz.stanleyw.secureshare.entity.StoredFile;
 import xyz.stanleyw.secureshare.service.StorageService;
 
 import java.util.Map;
@@ -24,5 +23,12 @@ public class FileController {
         storageService.store(file);
 
         return ResponseEntity.ok(Map.of("id", UUID.randomUUID()));
+    }
+
+    @GetMapping("/{fileId}")
+    public ResponseEntity<?> getStoredFileMetadata(@PathVariable String fileId) {
+        StoredFile storedFile = storageService.getMetadata(fileId);
+
+        return ResponseEntity.ok(storedFile);
     }
 }

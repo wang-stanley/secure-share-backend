@@ -72,14 +72,15 @@ public class FileSystemStorageService implements StorageService {
 
             file.transferTo(destinationFile);
 
-            Instant oneDayFromNow = Instant.now().plus(1, ChronoUnit.DAYS);
+            Instant oneDayFromNow = Instant.now().plus(1, ChronoUnit.DAYS).truncatedTo(ChronoUnit.SECONDS);
+            Instant now = Instant.now().truncatedTo(ChronoUnit.SECONDS);
 
             StoredFile storedFile = new StoredFile(
                     NanoIdUtils.randomNanoId(id_alphabet, 7),
                     destinationFile.toString(),
                     file.getSize(),
                     oneDayFromNow,
-                    Instant.now(),
+                    now,
                     100
             );
 
@@ -100,5 +101,23 @@ public class FileSystemStorageService implements StorageService {
     @Override
     public Resource loadAsResource(String filename) {
         return null;
+    }
+
+    @Override
+    public StoredFile getMetadata(String id) {
+        LOGGER.info("Fetching metadata for file [{}]", id);
+        StoredFile metadata = storedFileRepository.findById(id).orElse(null);
+
+        if (metadata == null) {
+            LOGGER.error("Metadata lookup failed for id {}", id);
+            throw new StorageException("Failed to get metadata for file: " + id);
+        }
+
+        return metadata;
+    }
+
+    @Override
+    public void delete(String id) {
+
     }
 }
