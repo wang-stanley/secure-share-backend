@@ -11,6 +11,7 @@ import org.springframework.web.multipart.MultipartFile;
 import xyz.stanleyw.secureshare.entity.StoredFile;
 import xyz.stanleyw.secureshare.exception.StorageException;
 import xyz.stanleyw.secureshare.config.StorageProperties;
+import xyz.stanleyw.secureshare.model.ExpirationDetails;
 import xyz.stanleyw.secureshare.repository.StoredFileRepository;
 
 import java.io.IOException;
@@ -115,6 +116,31 @@ public class FileSystemStorageService implements StorageService {
         }
 
         return metadata;
+    }
+
+    @Override
+    public StoredFile updateExpiration(String id, ExpirationDetails expirationDetails) {
+        LOGGER.info("Updating expiration metadata for file [{}]", id);
+        StoredFile storedFile = storedFileRepository.findById(id).orElse(null);
+
+        if (storedFile == null) {
+            LOGGER.error("Could not find file [{}]", id);
+            throw new StorageException("Failed to fetch file: " + id);
+        }
+
+        long timeDetail = expirationDetails.getExpiresInSeconds();
+        int downloadDetail = expirationDetails.getMaxDownloads();
+
+        Instant updatedExpiresAtTime = storedFile.getCreatedAt().plus(timeDetail, ChronoUnit.SECONDS);
+
+        int usedDownloads = storedFile.getMaxDownloads() - storedFile.getDownloadsRemaining();
+        int updatedDownloadsRemaining = downloadDetail - usedDownloads;
+
+        storedFile.setMaxDownloads(downloadDetail);
+        storedFile.setDownloadsRemaining(updatedDownloadsRemaining);
+        storedFile.setExpiresAt(updatedExpiresAtTime);
+
+        return storedFileRepository.save(storedFile);
     }
 
     @Override

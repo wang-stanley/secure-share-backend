@@ -4,6 +4,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import xyz.stanleyw.secureshare.entity.StoredFile;
+import xyz.stanleyw.secureshare.model.ExpirationDetails;
 import xyz.stanleyw.secureshare.service.StorageService;
 
 import java.util.Map;
@@ -29,6 +30,13 @@ public class FileController {
     public ResponseEntity<?> getStoredFileMetadata(@PathVariable String fileId) {
         StoredFile storedFile = storageService.getMetadata(fileId);
 
+        return ResponseEntity.ok(storedFile);
+    }
+
+    @PutMapping("/{fileId}")
+    public ResponseEntity<?> updateExpirationDetails(@PathVariable String fileId,
+                                                     @RequestBody ExpirationDetails expirationDetails) {
+        StoredFile storedFile = storageService.updateExpiration(fileId, expirationDetails);
         return ResponseEntity.ok(storedFile);
     }
 }

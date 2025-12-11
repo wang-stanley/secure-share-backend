@@ -3,6 +3,7 @@ package xyz.stanleyw.secureshare.service;
 import org.springframework.core.io.Resource;
 import org.springframework.web.multipart.MultipartFile;
 import xyz.stanleyw.secureshare.entity.StoredFile;
+import xyz.stanleyw.secureshare.model.ExpirationDetails;
 
 import java.nio.file.Path;
 
@@ -17,6 +18,8 @@ public interface StorageService {
     Resource loadAsResource(String id);
 
     StoredFile getMetadata(String id);
+
+    StoredFile updateExpiration(String id, ExpirationDetails expirationDetails);
 
     void delete(String id);
 }
