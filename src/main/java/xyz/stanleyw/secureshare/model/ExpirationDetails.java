@@ -1,11 +1,12 @@
 package xyz.stanleyw.secureshare.model;
 
 import jakarta.validation.constraints.NotNull;
-import lombok.Getter;
-import lombok.Setter;
+import lombok.*;
 
 @Getter
 @Setter
+@AllArgsConstructor
+@NoArgsConstructor
 public class ExpirationDetails {
     @NotNull
     private int maxDownloads;

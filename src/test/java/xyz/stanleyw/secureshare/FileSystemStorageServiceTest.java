@@ -4,19 +4,27 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.io.TempDir;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.web.multipart.MultipartFile;
+import xyz.stanleyw.secureshare.entity.StoredFile;
 import xyz.stanleyw.secureshare.exception.StorageException;
 import xyz.stanleyw.secureshare.config.StorageProperties;
+import xyz.stanleyw.secureshare.exception.StoredFileNotFoundException;
+import xyz.stanleyw.secureshare.model.ExpirationDetails;
 import xyz.stanleyw.secureshare.repository.StoredFileRepository;
 import xyz.stanleyw.secureshare.service.FileSystemStorageService;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
+import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
@@ -157,16 +165,99 @@ public class FileSystemStorageServiceTest {
 
     @Test
     void store_whenFileIsValid_shouldStoreSuccessfully() throws IOException {
-        MultipartFile mockMultipartFile = mock(MultipartFile.class);
-        when(mockMultipartFile.isEmpty()).thenReturn(false);
-        when(mockMultipartFile.getOriginalFilename()).thenReturn("test.txt");
+        MultipartFile multipartFile = new MockMultipartFile(
+                "file",
+                "test.txt",
+                "text/plain",
+                "hello world".getBytes()
+        );
 
-        doNothing().when(mockMultipartFile).transferTo(any(Path.class));
+        storageService.store(multipartFile);
 
-        assertDoesNotThrow(() -> storageService.store(mockMultipartFile));
+        Path expectedPath = tempDir.resolve("test.txt").toAbsolutePath();
 
-        Path expectedPath = storageService.getRootLocation().resolve("test.txt").normalize().toAbsolutePath();
+        assertTrue(Files.exists(expectedPath));
+        assertEquals("hello world", Files.readString(expectedPath));
 
-        verify(mockMultipartFile).transferTo(expectedPath);
+        ArgumentCaptor<StoredFile> captor = ArgumentCaptor.forClass(StoredFile.class);
+        verify(storedFileRepository).save(captor.capture());
+
+        StoredFile saved = captor.getValue();
+
+        assertEquals(expectedPath.toString(), saved.getStoragePath());
+        assertEquals(multipartFile.getSize(), saved.getSizeBytes());
+    }
+
+    @Test
+    void getMetadata_whenFileIdIsInvalid_shouldThrowStoredFileNotFoundException() {
+        String id = "id";
+        when(storedFileRepository.findById(id)).thenReturn(Optional.empty());
+
+        assertThrows(StoredFileNotFoundException.class,
+                () -> storageService.getMetadata(id));
+
+        verify(storedFileRepository).findById(id);
+    }
+
+    @Test
+    void getMetadata_whenFileIsValid_shouldReturnStoredFile() {
+        String id = "id";
+        StoredFile storedFile = new StoredFile();
+        storedFile.setId(id);
+
+        when(storedFileRepository.findById(id)).thenReturn(Optional.of(storedFile));
+
+        StoredFile result = storageService.getMetadata(id);
+
+        assertNotNull(result);
+        assertEquals(id, result.getId());
+        verify(storedFileRepository).findById(id);
+    }
+
+    @Test
+    void updateExpiration_whenFileIsInvalid_shouldThrowStoredFileNotFoundException() {
+        String id = "id";
+        ExpirationDetails expirationDetails = new ExpirationDetails();
+
+        when(storedFileRepository.findById(id)).thenReturn(Optional.empty());
+
+        assertThrows(StoredFileNotFoundException.class,
+                () -> storageService.updateExpiration(id, expirationDetails));
+
+        verify(storedFileRepository).findById(id);
+    }
+
+    @Test
+    void updateExpiration_whenFileIsValid_shouldUpdateAndReturnStoredFile() {
+        String id = "id";
+        ExpirationDetails expirationDetails = new ExpirationDetails(67, 241200);
+
+        Instant createdAt = Instant.parse("2025-12-11T00:00:00Z");
+
+        StoredFile storedFile = new StoredFile();
+        storedFile.setId(id);
+        storedFile.setMaxDownloads(100);
+        storedFile.setDownloadsRemaining(99);
+        storedFile.setCreatedAt(createdAt);
+
+        when(storedFileRepository.findById(id)).thenReturn(Optional.of(storedFile));
+
+        when(storedFileRepository.save(any(StoredFile.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        Instant expectedExpiresAt = storedFile.getCreatedAt()
+                .plus(expirationDetails.getExpiresInSeconds(), ChronoUnit.SECONDS);
+
+        int downloadsUsed = storedFile.getMaxDownloads() - storedFile.getDownloadsRemaining();
+        int expectedDownloadsRemaining = expirationDetails.getMaxDownloads() - downloadsUsed;
+
+        StoredFile result = storageService.updateExpiration(id, expirationDetails);
+
+        assertEquals(expectedExpiresAt, result.getExpiresAt());
+        assertEquals(expirationDetails.getMaxDownloads(), result.getMaxDownloads());
+        assertEquals(expectedDownloadsRemaining, result.getDownloadsRemaining());
+
+        verify(storedFileRepository).findById(id);
+        verify(storedFileRepository).save(storedFile);
     }
 }
