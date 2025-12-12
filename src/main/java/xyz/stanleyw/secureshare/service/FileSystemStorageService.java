@@ -2,15 +2,15 @@ package xyz.stanleyw.secureshare.service;
 
 import com.soundicly.jnanoidenhanced.jnanoid.NanoIdUtils;
 import lombok.Getter;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
+import xyz.stanleyw.secureshare.config.StorageProperties;
 import xyz.stanleyw.secureshare.entity.StoredFile;
 import xyz.stanleyw.secureshare.exception.StorageException;
-import xyz.stanleyw.secureshare.config.StorageProperties;
+import xyz.stanleyw.secureshare.exception.StoredFileNotFoundException;
 import xyz.stanleyw.secureshare.model.ExpirationDetails;
 import xyz.stanleyw.secureshare.repository.StoredFileRepository;
 
@@ -23,12 +23,13 @@ import java.time.temporal.ChronoUnit;
 
 @Getter
 @Service
+@Slf4j
 public class FileSystemStorageService implements StorageService {
-    private static final Logger LOGGER = LoggerFactory.getLogger(FileSystemStorageService.class);
     private final Path rootLocation;
 
     private final StoredFileRepository storedFileRepository;
 
+    // Custom alphabet for generating Nano IDs for uploaded files
     private static final String id_alphabet = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
 
     @Autowired
@@ -38,7 +39,7 @@ public class FileSystemStorageService implements StorageService {
         }
 
         this.rootLocation = Paths.get(storageProperties.getLocation());
-        LOGGER.info("Root Location: {}", rootLocation);
+        log.info("Root Location: {}", rootLocation);
         this.storedFileRepository = storedFileRepository;
     }
 
@@ -67,12 +68,14 @@ public class FileSystemStorageService implements StorageService {
                     .normalize()
                     .toAbsolutePath();
 
+            // Safety check to make sure that there's no malicious file path
             if (!destinationFile.getParent().equals(this.rootLocation.toAbsolutePath())) {
                 throw new StorageException("Cannot store file outside current directory");
             }
 
             file.transferTo(destinationFile);
 
+            // Create default expiration instant 1 day from now
             Instant oneDayFromNow = Instant.now().plus(1, ChronoUnit.DAYS).truncatedTo(ChronoUnit.SECONDS);
             Instant now = Instant.now().truncatedTo(ChronoUnit.SECONDS);
 
@@ -88,16 +91,11 @@ public class FileSystemStorageService implements StorageService {
 
             storedFileRepository.save(storedFile);
         } catch (IOException e) {
-            LOGGER.error("Failed to store file! Error:{}", e.getMessage());
+            log.error("Failed to store file! Error:{}", e.getMessage());
             throw new StorageException("Failed to store file!", e);
         }
 
-        LOGGER.info("RECEIVED FILE: [{}]", file.getOriginalFilename());
-    }
-
-    @Override
-    public Path load(String filename) {
-        return null;
+        log.info("RECEIVED FILE: [{}]", file.getOriginalFilename());
     }
 
     @Override
@@ -107,12 +105,12 @@ public class FileSystemStorageService implements StorageService {
 
     @Override
     public StoredFile getMetadata(String id) {
-        LOGGER.info("Fetching metadata for file [{}]", id);
+        log.info("Fetching metadata for file [{}]", id);
         StoredFile metadata = storedFileRepository.findById(id).orElse(null);
 
         if (metadata == null) {
-            LOGGER.error("Metadata lookup failed for id {}", id);
-            throw new StorageException("Failed to get metadata for file: " + id);
+            log.error("Metadata lookup failed for file [{}]", id);
+            throw new StoredFileNotFoundException("Failed to get metadata for file: " + id);
         }
 
         return metadata;
@@ -120,19 +118,22 @@ public class FileSystemStorageService implements StorageService {
 
     @Override
     public StoredFile updateExpiration(String id, ExpirationDetails expirationDetails) {
-        LOGGER.info("Updating expiration metadata for file [{}]", id);
+        log.info("Updating expiration metadata for file [{}]", id);
         StoredFile storedFile = storedFileRepository.findById(id).orElse(null);
 
         if (storedFile == null) {
-            LOGGER.error("Could not find file [{}]", id);
-            throw new StorageException("Failed to fetch file: " + id);
+            log.error("Could not find file [{}]", id);
+            throw new StoredFileNotFoundException("Failed to fetch file: " + id);
         }
 
+        // Requested expiration updates
         long timeDetail = expirationDetails.getExpiresInSeconds();
         int downloadDetail = expirationDetails.getMaxDownloads();
 
+        // New expiresAt = createdAt + timeDetail (in seconds)
         Instant updatedExpiresAtTime = storedFile.getCreatedAt().plus(timeDetail, ChronoUnit.SECONDS);
 
+        // Remove however many downloads have already been used from the updated max downloads value
         int usedDownloads = storedFile.getMaxDownloads() - storedFile.getDownloadsRemaining();
         int updatedDownloadsRemaining = downloadDetail - usedDownloads;
 
