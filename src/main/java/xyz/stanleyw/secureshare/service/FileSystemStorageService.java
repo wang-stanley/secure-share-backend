@@ -5,6 +5,7 @@ import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.Resource;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 import xyz.stanleyw.secureshare.config.StorageProperties;
@@ -20,6 +21,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.List;
 
 @Getter
 @Service
@@ -146,6 +148,26 @@ public class FileSystemStorageService implements StorageService {
 
     @Override
     public void delete(String id) {
+        log.info("Deleting file [{}]", id);
+        StoredFile storedFile = storedFileRepository.findById(id).orElse(null);
 
+        if (storedFile == null) {
+            log.error("Could not find file [{}]", id);
+            throw new StoredFileNotFoundException("Failed to fetch file: " + id);
+        }
+
+        storedFileRepository.delete(storedFile);
+    }
+
+    // @Scheduled(cron = "0 */5 * * * *")
+    @Scheduled(cron = "*/30 * * * * *")
+    public void deleteExpiredFilesScanner() {
+        log.info("[SCANNER] Querying for expired files...");
+        List<String> deletedFileIds = storedFileRepository.deleteExpiredReturningIds(Instant.now());
+        log.info("[SCANNER] Deleted {} expired files", deletedFileIds.size());
+
+        for (String id: deletedFileIds) {
+            log.info("Deleted StoredFile: [{}]", id);
+        }
     }
 }

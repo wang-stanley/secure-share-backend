@@ -11,9 +11,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.web.multipart.MultipartFile;
+import xyz.stanleyw.secureshare.config.StorageProperties;
 import xyz.stanleyw.secureshare.entity.StoredFile;
 import xyz.stanleyw.secureshare.exception.StorageException;
-import xyz.stanleyw.secureshare.config.StorageProperties;
 import xyz.stanleyw.secureshare.exception.StoredFileNotFoundException;
 import xyz.stanleyw.secureshare.model.ExpirationDetails;
 import xyz.stanleyw.secureshare.repository.StoredFileRepository;
@@ -200,7 +200,7 @@ public class FileSystemStorageServiceTest {
     }
 
     @Test
-    void getMetadata_whenFileIsValid_shouldReturnStoredFile() {
+    void getMetadata_whenFileIdIsValid_shouldReturnStoredFile() {
         String id = "id";
         StoredFile storedFile = new StoredFile();
         storedFile.setId(id);
@@ -215,7 +215,7 @@ public class FileSystemStorageServiceTest {
     }
 
     @Test
-    void updateExpiration_whenFileIsInvalid_shouldThrowStoredFileNotFoundException() {
+    void updateExpiration_whenFileIdIsInvalid_shouldThrowStoredFileNotFoundException() {
         String id = "id";
         ExpirationDetails expirationDetails = new ExpirationDetails();
 
@@ -228,7 +228,7 @@ public class FileSystemStorageServiceTest {
     }
 
     @Test
-    void updateExpiration_whenFileIsValid_shouldUpdateAndReturnStoredFile() {
+    void updateExpiration_whenFileIdIsValid_shouldUpdateAndReturnStoredFile() {
         String id = "id";
         ExpirationDetails expirationDetails = new ExpirationDetails(67, 241200);
 
@@ -259,5 +259,17 @@ public class FileSystemStorageServiceTest {
 
         verify(storedFileRepository).findById(id);
         verify(storedFileRepository).save(storedFile);
+    }
+
+    @Test
+    void delete_whenFileIdIsInvalid_shouldThrowStoredFileNotFoundException() {
+        String id = "id";
+
+        when(storedFileRepository.findById(id)).thenReturn(Optional.empty());
+
+        assertThrows(StoredFileNotFoundException.class,
+                () -> storageService.delete(id));
+
+        verify(storedFileRepository).findById(id);
     }
 }
